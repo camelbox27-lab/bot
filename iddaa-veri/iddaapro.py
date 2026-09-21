@@ -19,6 +19,85 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 
 from tkcalendar import DateEntry
+
+# --- Platform uyumlulugu (macOS) ---
+import platform as _platform
+IS_MAC = _platform.system() == "Darwin"
+# Segoe UI Windows fontudur; Mac'te sistem fontuna dusulur
+UI_FONT = "Helvetica Neue" if IS_MAC else UI_FONT
+
+def _mac_button(parent, **kw):
+    """macOS'ta tk.Button bg/fg'yi yok sayar; renkli gorunum icin
+    Frame+Label ile tiklanabilir buton uretir. Diger platformlarda tk.Button."""
+    if not IS_MAC:
+        return _mac_button(parent, **kw)
+
+    text = kw.pop("text", "")
+    cmd = kw.pop("command", None)
+    bg = kw.pop("bg", "#EEEEEE")
+    fg = kw.pop("fg", "#000000")
+    font = kw.pop("font", (UI_FONT, 9, "bold"))
+    activebg = kw.pop("activebackground", bg)
+    kw.pop("activeforeground", None)
+    kw.pop("relief", None); kw.pop("bd", None); kw.pop("highlightthickness", None)
+    kw.pop("cursor", None)
+    pady = kw.pop("pady", 8)
+    padx = kw.pop("padx", 6)
+    kw.pop("width", None); kw.pop("anchor", None); kw.pop("justify", None)
+
+    holder = tk.Frame(parent, bg=bg, highlightthickness=0, bd=0)
+    lbl = tk.Label(holder, text=text, bg=bg, fg=fg, font=font,
+                   padx=padx, pady=pady, cursor="pointinghand")
+    lbl.pack(fill="both", expand=True)
+
+    state = {"enabled": True}
+
+    def _on_click(_e=None):
+        if state["enabled"] and cmd:
+            cmd()
+
+    def _on_enter(_e=None):
+        if state["enabled"]:
+            holder.configure(bg=activebg); lbl.configure(bg=activebg)
+
+    def _on_leave(_e=None):
+        if state["enabled"]:
+            holder.configure(bg=bg); lbl.configure(bg=bg)
+
+    for w in (holder, lbl):
+        w.bind("<Button-1>", _on_click)
+        w.bind("<Enter>", _on_enter)
+        w.bind("<Leave>", _on_leave)
+
+    def _configure(**opts):
+        # tk.Button API uyumu: state / bg / text
+        if "state" in opts:
+            st = str(opts.pop("state"))
+            state["enabled"] = st not in ("disabled", "DISABLED")
+            shade = bg if state["enabled"] else "#CCCCCC"
+            holder.configure(bg=shade); lbl.configure(bg=shade,
+                fg=fg if state["enabled"] else "#888888")
+        if "bg" in opts:
+            c = opts.pop("bg"); holder.configure(bg=c); lbl.configure(bg=c)
+        if "text" in opts:
+            lbl.configure(text=opts.pop("text"))
+        if opts:
+            try: lbl.configure(**opts)
+            except tk.TclError: pass
+
+    holder.configure_btn = _configure
+    holder.configure = _configure
+    holder.config = _configure
+    holder.bind_label = lbl
+
+    # Dis kodun bind() cagrilari her iki widget'a da uygulansin
+    _holder_bind = tk.Frame.bind
+    def _bind_both(sequence=None, func=None, add=None):
+        _holder_bind(holder, sequence, func, add)
+        lbl.bind(sequence, func, add)
+    holder.bind = _bind_both
+    return holder
+
 from openpyxl import Workbook
 from openpyxl.styles import PatternFill, Font, Alignment
 from selenium import webdriver
@@ -1650,7 +1729,7 @@ class _Tooltip:
         self._tip.wm_overrideredirect(True)
         self._tip.wm_geometry(f"+{x}+{y}")
         tk.Label(self._tip, text=text, bg="#F7FBF5", fg="#224131",
-                 font=("Segoe UI", 7), relief="solid", bd=1,
+                 font=(UI_FONT, 7), relief="solid", bd=1,
                  highlightbackground="#18A558", highlightthickness=1,
                  padx=6, pady=3).pack()
 
@@ -1932,9 +2011,9 @@ class IddaaProApp:
 
     def _btn(self, parent, text, cmd, bg=CLR_BTN_G, width=20, tooltip: str = ""):
         hover = self._HOVER_MAP.get(bg, bg)
-        btn = tk.Button(parent, text=text, command=cmd,
+        btn = _mac_button(parent, text=text, command=cmd,
                         bg=bg, fg="#0A1929" if bg in (CLR_GOLD, CLR_BTN_Y, CLR_ACCENT, "#00E676") else CLR_BTN_TXT,
-                        font=("Segoe UI", 8, "bold"),
+                        font=(UI_FONT, 8, "bold"),
                         relief="flat", cursor="hand2",
                         activebackground=hover,
                         activeforeground="#0A1929" if bg in (CLR_GOLD, CLR_BTN_Y, CLR_ACCENT, "#00E676") else CLR_BTN_TXT,
@@ -1947,7 +2026,7 @@ class IddaaProApp:
 
     def _lframe(self, parent, text):
         return tk.LabelFrame(parent, text=f"  {text}  ", bg=CLR_CARD,
-                             font=("Segoe UI", 9, "bold"),
+                             font=(UI_FONT, 9, "bold"),
                              fg=CLR_ACCENT, padx=10, pady=8,
                              relief="solid", bd=1,
                              highlightbackground="#D7E6D5",
@@ -1973,13 +2052,13 @@ class IddaaProApp:
         title_blk = tk.Frame(hdr, bg=CLR_HEADER)
         title_blk.pack(side="left", pady=11)
         tk.Label(title_blk, text="\u0130ddaaPro", bg=CLR_HEADER, fg=CLR_ACCENT,
-                 font=("Segoe UI", 16, "bold")).pack(anchor="w")
+                 font=(UI_FONT, 16, "bold")).pack(anchor="w")
         tk.Label(title_blk, text="Ma\u00e7 Verisi & Oran Analizi",
                  bg=CLR_HEADER, fg=CLR_TXT_SEC,
-                 font=("Segoe UI", 8)).pack(anchor="w")
+                 font=(UI_FONT, 8)).pack(anchor="w")
 
         tk.Label(hdr, text=" v3.0 ", bg="#E6F6EA", fg=CLR_ACCENT_D,
-                 font=("Segoe UI", 7, "bold"),
+                 font=(UI_FONT, 7, "bold"),
                  padx=6, pady=2).pack(side="right", padx=18)
 
         # Accent line
@@ -1998,10 +2077,10 @@ class IddaaProApp:
         frm_veri.columnconfigure(0, weight=1)
         frm_veri.columnconfigure(1, weight=1)
 
-        btn_baslat = tk.Button(frm_veri, text="\u25b6  GE\u00c7M\u0130\u015e MA\u00c7LARI \u00c7EK",
+        btn_baslat = _mac_button(frm_veri, text="\u25b6  GE\u00c7M\u0130\u015e MA\u00c7LARI \u00c7EK",
                                command=self._start_biten,
                                bg=CLR_ACCENT, fg="#0A1929",
-                               font=("Segoe UI", 9, "bold"),
+                               font=(UI_FONT, 9, "bold"),
                                relief="flat", cursor="hand2",
                                activebackground=CLR_ACCENT_D,
                                activeforeground="#0A1929",
@@ -2011,10 +2090,10 @@ class IddaaProApp:
         _Tooltip(btn_baslat, "Se\u00e7ilen tarih aral\u0131\u011f\u0131ndaki ge\u00e7mi\u015f ma\u00e7lar\u0131 \u00e7ek")
         btn_baslat.grid(row=0, column=0, columnspan=2, pady=(2, 4), sticky="ew")
 
-        btn_gunluk = tk.Button(frm_veri, text="\u26bd  G\u00dcNL\u00dcK MA\u00c7LARI \u00c7EK",
+        btn_gunluk = _mac_button(frm_veri, text="\u26bd  G\u00dcNL\u00dcK MA\u00c7LARI \u00c7EK",
                                command=self._start_gunluk,
                                bg="#1565C0", fg="#FFFFFF",
-                               font=("Segoe UI", 9, "bold"),
+                               font=(UI_FONT, 9, "bold"),
                                relief="flat", cursor="hand2",
                                activebackground="#1E88E5",
                                activeforeground="#FFFFFF",
@@ -2057,16 +2136,16 @@ class IddaaProApp:
             weekendforeground=CLR_ACCENT_D,
             othermonthforeground="#8CA191",
             othermonthbackground="#FFFFFF",
-            font=("Segoe UI", 8),
+            font=(UI_FONT, 8),
         )
         tk.Label(frm_tarih, text="Ba\u015flang\u0131\u00e7:", bg=CLR_CARD,
-                 fg=CLR_TXT_SEC, font=("Segoe UI", 9)).grid(row=0, column=0, sticky="w", pady=6)
+                 fg=CLR_TXT_SEC, font=(UI_FONT, 9)).grid(row=0, column=0, sticky="w", pady=6)
         self._start_cal = DateEntry(frm_tarih, width=12, **cal_opts)
         self._start_cal.set_date(dt.date(2021, 1, 1))
         self._start_cal.grid(row=0, column=1, padx=(10, 0), pady=6, sticky="ew")
 
         tk.Label(frm_tarih, text="Biti\u015f:", bg=CLR_CARD,
-                 fg=CLR_TXT_SEC, font=("Segoe UI", 9)).grid(row=1, column=0, sticky="w", pady=6)
+                 fg=CLR_TXT_SEC, font=(UI_FONT, 9)).grid(row=1, column=0, sticky="w", pady=6)
         self._end_cal = DateEntry(frm_tarih, width=12, **cal_opts)
         self._end_cal.set_date(dt.date.today())
         self._end_cal.grid(row=1, column=1, padx=(10, 0), pady=6, sticky="ew")
@@ -2090,11 +2169,11 @@ class IddaaProApp:
         style.theme_use("default")
         style.configure("Treeview.Heading",
                         background=CLR_GRID_H, foreground="#FFFFFF",
-                        font=("Segoe UI", 8, "bold"), relief="flat", padding=(4, 6))
+                        font=(UI_FONT, 8, "bold"), relief="flat", padding=(4, 6))
         style.map("Treeview.Heading",
                   background=[("active", "#129455")])
         style.configure("Treeview",
-                        font=("Segoe UI", 8), rowheight=26,
+                        font=(UI_FONT, 8), rowheight=26,
                         background=CLR_ROW_ODD, fieldbackground=CLR_ROW_ODD,
                         foreground=CLR_TXT_PRI, borderwidth=0, relief="flat")
         style.map("Treeview",
@@ -2139,11 +2218,11 @@ class IddaaProApp:
 
         self._status_var = tk.StringVar(value="\u2713 Haz\u0131r")
         tk.Label(status_bar, textvariable=self._status_var,
-                 bg=CLR_HEADER, fg=CLR_GOLD, font=("Segoe UI", 8)).pack(side="left", padx=6)
+                 bg=CLR_HEADER, fg=CLR_GOLD, font=(UI_FONT, 8)).pack(side="left", padx=6)
 
         self._count_var = tk.StringVar(value="Ma\u00e7lar (0)")
         tk.Label(status_bar, textvariable=self._count_var,
-                 bg=CLR_HEADER, fg=CLR_ACCENT, font=("Segoe UI", 9, "bold")).pack(side="right", padx=14)
+                 bg=CLR_HEADER, fg=CLR_ACCENT, font=(UI_FONT, 9, "bold")).pack(side="right", padx=14)
 
     def _set_status(self, msg: str, count: int | None = None):
         if "hata" in msg.lower() or "HATA" in msg:
@@ -2254,11 +2333,11 @@ class IddaaProApp:
         def _lig_hicbiri():
             for v in lig_vars.values(): v.set(False)
 
-        tk.Button(lig_btn_row, text="T\u00fcm\u00fcn\u00fc Se\u00e7", command=_lig_tumunu,
-                  bg=CLR_BTN_GRY, fg="white", font=("Segoe UI", 7, "bold"),
+        _mac_button(lig_btn_row, text="T\u00fcm\u00fcn\u00fc Se\u00e7", command=_lig_tumunu,
+                  bg=CLR_BTN_GRY, fg="white", font=(UI_FONT, 7, "bold"),
                   relief="flat", pady=3, padx=10, cursor="hand2").pack(side="left", padx=(0, 4))
-        tk.Button(lig_btn_row, text="Hi\u00e7birini Se\u00e7me", command=_lig_hicbiri,
-                  bg=CLR_BTN_O, fg="white", font=("Segoe UI", 7, "bold"),
+        _mac_button(lig_btn_row, text="Hi\u00e7birini Se\u00e7me", command=_lig_hicbiri,
+                  bg=CLR_BTN_O, fg="white", font=(UI_FONT, 7, "bold"),
                   relief="flat", pady=3, padx=10, cursor="hand2").pack(side="left")
 
         cvs_lig = tk.Canvas(frm_lig, bg=CLR_CARD, highlightthickness=0)
@@ -2292,7 +2371,7 @@ class IddaaProApp:
                 hdr_row, text=country, variable=ctry_var,
                 bg=CLR_CARD, fg=CLR_ACCENT, activebackground=CLR_CARD,
                 selectcolor=CLR_CARD, activeforeground=CLR_ACCENT,
-                font=("Segoe UI", 8, "bold"), anchor="w",
+                font=(UI_FONT, 8, "bold"), anchor="w",
                 command=lambda cv=ctry_var, gvs=grp_vars: _toggle_country(cv, gvs)
             ).pack(anchor="w")
 
@@ -2311,7 +2390,7 @@ class IddaaProApp:
                     items_frame, text=lig_label, variable=var,
                     bg=CLR_CARD, fg=CLR_TXT_PRI, activebackground=CLR_CARD,
                     selectcolor=CLR_CARD, activeforeground=CLR_TXT_PRI,
-                    font=("Segoe UI", 8), anchor="w"
+                    font=(UI_FONT, 8), anchor="w"
                 ).grid(row=row, column=col, sticky="w", padx=(20, 4))
                 var.trace_add("write", lambda *a, cv=ctry_var, gvs=grp_vars: _update_ctry(cv, gvs))
 
@@ -2332,11 +2411,11 @@ class IddaaProApp:
         def _mkt_hicbiri():
             for v in mkt_vars.values(): v.set(False)
 
-        tk.Button(mkt_btn_row, text="T\u00fcm\u00fcn\u00fc Se\u00e7", command=_mkt_tumunu,
-                  bg=CLR_BTN_GRY, fg="white", font=("Segoe UI", 7, "bold"),
+        _mac_button(mkt_btn_row, text="T\u00fcm\u00fcn\u00fc Se\u00e7", command=_mkt_tumunu,
+                  bg=CLR_BTN_GRY, fg="white", font=(UI_FONT, 7, "bold"),
                   relief="flat", pady=3, padx=10, cursor="hand2").pack(side="left", padx=(0, 4))
-        tk.Button(mkt_btn_row, text="Hi\u00e7birini Se\u00e7me", command=_mkt_hicbiri,
-                  bg=CLR_BTN_O, fg="white", font=("Segoe UI", 7, "bold"),
+        _mac_button(mkt_btn_row, text="Hi\u00e7birini Se\u00e7me", command=_mkt_hicbiri,
+                  bg=CLR_BTN_O, fg="white", font=(UI_FONT, 7, "bold"),
                   relief="flat", pady=3, padx=10, cursor="hand2").pack(side="left")
 
         cvs_mkt = tk.Canvas(frm_mkt, bg=CLR_CARD, highlightthickness=0)
@@ -2368,7 +2447,7 @@ class IddaaProApp:
                 inner_mkt, text=grp_name, variable=grp_var,
                 bg=CLR_CARD, fg=CLR_ACCENT, activebackground=CLR_CARD,
                 selectcolor=CLR_CARD, activeforeground=CLR_ACCENT,
-                font=("Segoe UI", 8, "bold"), anchor="w",
+                font=(UI_FONT, 8, "bold"), anchor="w",
                 command=lambda gv=grp_var, ivs=item_vars: _toggle_grp(gv, ivs)
             ).pack(anchor="w", padx=4, pady=(5, 0))
 
@@ -2382,7 +2461,7 @@ class IddaaProApp:
                     sub_frame, text=mkt_label, variable=iv,
                     bg=CLR_CARD, fg=CLR_TXT_PRI, activebackground=CLR_CARD,
                     selectcolor=CLR_CARD, activeforeground=CLR_TXT_PRI,
-                    font=("Segoe UI", 7), anchor="w"
+                    font=(UI_FONT, 7), anchor="w"
                 ).grid(row=col_i // 3, column=col_i % 3, sticky="w", padx=(20, 2))
                 iv.trace_add("write", lambda *a, gv=grp_var, ivs=item_vars: _update_grp(gv, ivs))
 
@@ -2405,15 +2484,15 @@ class IddaaProApp:
             dlg.destroy()
             self._set_status(f"\u2699 Ayarlar kaydedildi \u2014 Lig: {n_lig} | Oran: {n_mkt}")
 
-        tk.Button(btn_bar, text="\U0001f4be  KAYDET", command=_kaydet,
-                  bg=CLR_ACCENT, fg="#0A1929", font=("Segoe UI", 9, "bold"),
+        _mac_button(btn_bar, text="\U0001f4be  KAYDET", command=_kaydet,
+                  bg=CLR_ACCENT, fg="#0A1929", font=(UI_FONT, 9, "bold"),
                   relief="flat", pady=8, padx=24, cursor="hand2").pack(side="left")
-        tk.Button(btn_bar, text="\u274c  \u0130PTAL", command=dlg.destroy,
-                  bg=CLR_BTN_R, fg="white", font=("Segoe UI", 9, "bold"),
+        _mac_button(btn_bar, text="\u274c  \u0130PTAL", command=dlg.destroy,
+                  bg=CLR_BTN_R, fg="white", font=(UI_FONT, 9, "bold"),
                   relief="flat", pady=8, padx=18, cursor="hand2").pack(side="left", padx=(8, 0))
-        tk.Button(btn_bar, text="\U0001f4c2  Excel Klas\u00f6r\u00fc",
+        _mac_button(btn_bar, text="\U0001f4c2  Excel Klas\u00f6r\u00fc",
                   command=self._sec_klasor,
-                  bg=CLR_BTN_GRY, fg="white", font=("Segoe UI", 9, "bold"),
+                  bg=CLR_BTN_GRY, fg="white", font=(UI_FONT, 9, "bold"),
                   relief="flat", pady=8, padx=18, cursor="hand2").pack(side="right")
 
     def _export_all(self):
