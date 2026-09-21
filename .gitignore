@@ -1,0 +1,34 @@
+# GIZLI ANAHTARLAR - asla push edilmez
+serviceAccountKey.json
+*serviceAccount*.json
+.env
+.env.*
+*.key
+*.pem
+
+# Python
+venv/
+env/
+__pycache__/
+*.pyc
+*.pyo
+
+# Cikti / gecici dosyalar
+logs/
+filtered/
+merged_json/
+merged/merged_json/
+mackolik-excel-json/json_output/
+*.log
+*.xlsx
+
+# Bu repoya ait olmayan alt projeler
+oddsy_app/
+oddsy_mobile/
+api/
+functions/
+docs/
+node_modules/
+
+# Mac
+.DS_Store
