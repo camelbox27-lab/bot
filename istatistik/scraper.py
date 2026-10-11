@@ -12,6 +12,11 @@ from datetime import datetime
 import os
 import re
 
+# --- SEZON AYARI ---
+# None -> en guncel sezon otomatik secilir. "2026/2027" gibi deger sabitler.
+# Ortam degiskeni:  set ADAMCHOI_SEASON=2026/2027
+SEASON = os.environ.get('ADAMCHOI_SEASON') or None
+
 # Veri tipine gore kaynak sayfa ve etiketler
 DATA_TYPES = {
     'kart': {
@@ -25,6 +30,30 @@ DATA_TYPES = {
         'label': 'KORNER',
     },
 }
+
+
+def select_season(driver, wait, season=None):
+    """adamchoi sezon dropdown'ini secer (secilmezse eski sezon gelir)."""
+    try:
+        sel = Select(wait.until(EC.presence_of_element_located((By.ID, 'season'))))
+        options = [o.text.strip() for o in sel.options if o.text.strip()]
+        if not options:
+            return None
+        target = None
+        if season:
+            for opt in options:
+                if season == opt or season in opt:
+                    target = opt
+                    break
+        if target is None:
+            target = options[0]
+        if sel.first_selected_option.text.strip() != target:
+            sel.select_by_visible_text(target)
+            time.sleep(4)
+        return target
+    except Exception as e:
+        print('  [UYARI] Sezon secilemedi: ' + str(e))
+        return None
 
 
 def scrape_league_cards(driver, wait, country, league_name, is_turkey=False, data_type='kart'):
@@ -97,6 +126,11 @@ def scrape_league_cards(driver, wait, country, league_name, is_turkey=False, dat
             wait_time = 8 if is_turkey else 6
             time.sleep(wait_time)
             
+
+            # Sezon sec (lig degisince dropdown yenilendigi icin BURADA yapilir)
+            secilen_sezon = select_season(driver, wait, SEASON)
+            if secilen_sezon:
+                print('  -> sezon: ' + secilen_sezon, end='', flush=True)
             # Tabloyu kontrol et
             rows = driver.find_elements(By.CSS_SELECTOR, "table tbody tr")
 
