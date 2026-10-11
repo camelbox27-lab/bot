@@ -41,3 +41,6 @@ node_modules/
 
 # Sofascore dogrulama icin Chrome profili (cookie iceriyor)
 .sofa_browser_profile/
+
+# GitHub Actions (OAuth workflow izni yok - lokal calisir)
+.github/
