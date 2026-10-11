@@ -1,0 +1,85 @@
+name: Run OddsBot Pipeline
+
+on:
+  schedule:
+    - cron: '0 6 * * *'   # Her gün 09:00 TR saati (UTC+3)
+  workflow_dispatch:
+    inputs:
+      bot_type:
+        description: 'Bot Type (main/stats)'
+        required: true
+        default: 'main'
+        type: choice
+        options:
+        - main
+        - stats
+
+permissions:
+  contents: write
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+    - name: Checkout Bot Repo
+      uses: actions/checkout@v4
+
+    - name: Checkout oddsy-data Repo
+      uses: actions/checkout@v4
+      with:
+        repository: camelbox27-lab/oddsy-data
+        token: ${{ secrets.ODDSY_DATA_TOKEN }}
+        path: oddsy-data
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Install Dependencies
+      run: |
+        pip install -r requirements.txt
+        pip install requests pandas openpyxl
+
+    - name: Create Directories
+      run: |
+        mkdir -p filtered merged/merged_json mackolik-excel-json/json_output
+        mkdir -p oddsy-data/data
+
+    - name: Run Main Bot Pipeline
+      if: ${{ github.event_name == 'schedule' || inputs.bot_type == 'main' }}
+      run: |
+        python main.py
+      env:
+        PYTHONIOENCODING: utf-8
+
+    - name: Run Statistics Bot Pipeline
+      if: ${{ inputs.bot_type == 'stats' }}
+      run: |
+        cd istatistik
+        python main.py
+      env:
+        PYTHONIOENCODING: utf-8
+
+    - name: Push Data to oddsy-data
+      if: ${{ github.event_name == 'schedule' || inputs.bot_type == 'main' }}
+      run: |
+        cd oddsy-data
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git add data/
+        git diff --staged --quiet && echo "No changes to push" || (git commit -m "chore: update daily predictions $(date +%d.%m.%Y)" && git push)
+
+    - name: Upload Artifacts
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: bot-results
+        path: |
+          filtered/*.json
+          filtered/*.xlsx
+          oddsy-data/data/*.json
+        retention-days: 7

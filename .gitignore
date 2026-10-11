@@ -1,0 +1,43 @@
+# GIZLI ANAHTARLAR - asla push edilmez
+serviceAccountKey.json
+*serviceAccount*.json
+# Firebase / Google service-account anahtarlari (her isimde, her klasorde)
+*firebase*key*.json
+*-key.json
+*_key.json
+**/firebase-key.json
+credentials.json
+.env
+.env.*
+*.key
+*.pem
+
+# Python
+venv/
+env/
+__pycache__/
+*.pyc
+*.pyo
+
+# Cikti / gecici dosyalar
+logs/
+filtered/
+merged_json/
+merged/merged_json/
+mackolik-excel-json/json_output/
+*.log
+*.xlsx
+
+# Bu repoya ait olmayan alt projeler
+oddsy_app/
+oddsy_mobile/
+api/
+functions/
+docs/
+node_modules/
+
+# Mac
+.DS_Store
+
+# Sofascore dogrulama icin Chrome profili (cookie iceriyor)
+.sofa_browser_profile/
