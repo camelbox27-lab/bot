@@ -1,0 +1,7 @@
+# Mac/Linux scriptleri her zaman LF olmali (CRLF -> 'bad interpreter' hatasi)
+*.command text eol=lf
+*.sh      text eol=lf
+*.py      text eol=lf
+
+# Windows scriptleri CRLF kalsin
+*.bat     text eol=crlf
