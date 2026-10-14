@@ -140,7 +140,20 @@ def git_push(today_str, label="tahminler"):
         if diff.returncode != 0:
             _git(['git', 'commit', '-m', f'chore: update {label} {today_str}'],
                  cwd=ODDSY_DATA_DIR, check=True)
-            _git(['git', 'push', 'origin', 'main'], cwd=ODDSY_DATA_DIR, check=True)
+
+            # Pipeline calisirken telefondaki butonlardan biri push etmis
+            # olabilir; o zaman push reddedilir. Bizim commit'imiz yalnizca
+            # data/ klasorune dokundugu, telefon butonlari ise iddaa/ ve
+            # bet365/ yazdigi icin rebase temiz gecer.
+            itildi = _git(['git', 'push', 'origin', 'main'],
+                          cwd=ODDSY_DATA_DIR, check=False)
+            if itildi.returncode != 0:
+                print("[INFO] Uzakta yeni commit var, rebase edilip tekrar denenecek...")
+                _git(['git', 'pull', '--rebase', 'origin', 'main'],
+                     cwd=ODDSY_DATA_DIR, check=True)
+                _git(['git', 'push', 'origin', 'main'],
+                     cwd=ODDSY_DATA_DIR, check=True)
+
             print(f"[OK] Git push basarili ({label})! Frontend otomatik guncellenecek.")
             return True
         else:
@@ -179,42 +192,46 @@ def main():
     # Boylece clean.py ve filter_bot.py calisirken yerel repo guncel olur.
     # Eger pull sonraya birakilirsa, filter_bot basarisiz olunca git pull
     # eski dosyalari remote'dan geri getirir ve diff 0 cikar -> push olmaz.
-    print_header("0/8: GIT PULL (pipeline oncesi)")
+    print_header("0/9: VERI DEPOSUNU ESITLE (pipeline oncesi)")
+    if SESSIZ:
+        print(f"  {'VERI DEPOSU ESITLENIYOR...':<42}", end="", flush=True)
+
     if os.path.exists(ODDSY_DATA_DIR):
         try:
-            # Bot ciktilari (bet365/, iddaa/ gibi data/ disi dosyalar) calisma
-            # agacini kirli birakir ve 'pull --rebase' bunu reddeder. Bu dosyalar
-            # git_push() tarafindan zaten commitlenmiyor (sadece data/ stage'leniyor),
-            # bu yuzden pull oncesi guvenle stash'lenip sonrasinda geri aliniyor.
-            dirty = subprocess.run(['git', 'status', '--porcelain'],
+            # Bu bot yalnizca data/ klasorunun sahibi. iddaa/ ve bet365/
+            # klasorlerini telefondaki butonlar (GitHub Actions) yaziyor.
+            # Oradaki .xlsx dosyalari binary oldugu icin git birlestiremiyor;
+            # "needs merge" ile index kilitleniyor ve ne stash ne commit
+            # calisiyordu. Birlestirmeye calismak yerine depo dogrudan
+            # uzaktaki surume esitlenir.
+            #
+            # Bu adim pipeline data/ yazmadan ONCE calistigi icin bu
+            # calismanin ciktisi etkilenmez. Atilan tek sey onceki
+            # calismadan kalmis, push edilememis yerel degisikliklerdir;
+            # data/ her calismada yeniden uretildigi icin kayip olmaz.
+            _git(['git', 'fetch', 'origin', 'main'], cwd=ODDSY_DATA_DIR, check=True)
+
+            kirli = subprocess.run(['git', 'status', '--porcelain'],
                                    cwd=ODDSY_DATA_DIR, capture_output=True,
                                    text=True, check=False).stdout.strip()
-            if SESSIZ:
-                print(f"  {'VERI DEPOSU GUNCELLENIYOR...':<42}", end="", flush=True)
-            stashed = False
-            if dirty:
-                st = _git(
-                    ['git', 'stash', 'push', '-u', '-m', 'pipeline-autostash'],
-                    cwd=ODDSY_DATA_DIR, check=False)
-                stashed = (st.returncode == 0)
-                if not SESSIZ:
-                    print(f"[INFO] Yerel degisiklikler gecici saklandi (stash): {'OK' if stashed else 'BASARISIZ'}")
 
-            _git(['git', 'pull', 'origin', 'main', '--rebase'],
-                 cwd=ODDSY_DATA_DIR, check=False)
+            _git(['git', 'reset', '--hard', 'origin/main'],
+                 cwd=ODDSY_DATA_DIR, check=True)
 
-            if stashed:
-                pop = _git(['git', 'stash', 'pop'], cwd=ODDSY_DATA_DIR, check=False)
-                if pop.returncode != 0:
-                    # Cakisma: remote surum esas alinir, yerel bot ciktisi atilir.
-                    _git(['git', 'checkout', '--theirs', '.'],
-                         cwd=ODDSY_DATA_DIR, check=False)
-                    _git(['git', 'stash', 'drop'], cwd=ODDSY_DATA_DIR, check=False)
-                    if not SESSIZ:
-                        print("[WARN] Stash geri alinamadi (cakisma), remote surum korundu.")
-            print("TAMAM" if SESSIZ else "[OK] oddsy-data pull tamamlandi.")
+            print("TAMAM" if SESSIZ else "[OK] oddsy-data uzaktaki surume esitlendi.")
+
+            if kirli:
+                n = len(kirli.splitlines())
+                if SESSIZ:
+                    print(f"  {'':<42}({n} push edilmemis yerel degisiklik atildi)")
+                else:
+                    print(f"[INFO] {n} push edilmemis yerel degisiklik atildi.")
         except Exception as e:
-            print(f"HATA ({e})" if SESSIZ else f"[WARN] Git pull hatasi (devam ediliyor): {e}")
+            print(f"HATA ({e})" if SESSIZ
+                  else f"[WARN] Esitleme hatasi (devam ediliyor): {e}")
+    else:
+        print("DEPO YOK" if SESSIZ
+              else f"[WARN] oddsy-data bulunamadi: {ODDSY_DATA_DIR}")
 
     # Pipeline adimlari: (isim, script, calisma_dizini, [extra_args], kritik_mi)
     # NOT: Kart & Korner istatistikleri bu pipeline'a DAHIL DEGIL - bu pipeline
