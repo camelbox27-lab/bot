@@ -10,6 +10,10 @@ Verileri filtreler ve JSON dosyaları olarak oddsy-data reposuna kaydeder.
 Frontend bu JSON'ları GitHub raw URL'lerinden çeker.
 """
 
+# MOBIL=1 -> dropping_odds_bot.py atlanir (SofaScore 403), kaynak dosya olusmaz.
+# Bu durumda mevcut droppingOdds.json'i bos listeyle EZMEMEK gerekir.
+MOBIL = os.environ.get('MOBIL') == '1'
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # oddsy-data: CI'da ./oddsy-data, lokalde ../oddsy-data
 _ci_path = os.path.join(BASE_DIR, 'oddsy-data')
@@ -147,9 +151,18 @@ def filter_matches():
 
     # droppingOdds.json
     dropping_odds_path = os.path.join(DATA_OUTPUT_DIR, 'droppingOdds.json')
-    with open(dropping_odds_path, 'w', encoding='utf-8') as f:
-        json.dump(dropping_odds, f, ensure_ascii=False, indent=2)
-    print(f"  ✅ droppingOdds.json -> {len(dropping_odds)} maç")
+    if MOBIL and not dropping_odds and os.path.exists(dropping_odds_path):
+        # Sadece mobilde: kaynak yok, sitedeki mevcut veri korunur
+        try:
+            with open(dropping_odds_path, 'r', encoding='utf-8') as f:
+                dropping_odds = json.load(f)
+        except Exception:
+            dropping_odds = []
+        print(f"  ⏭️ droppingOdds.json korundu (mobil) -> {len(dropping_odds)} maç")
+    else:
+        with open(dropping_odds_path, 'w', encoding='utf-8') as f:
+            json.dump(dropping_odds, f, ensure_ascii=False, indent=2)
+        print(f"  ✅ droppingOdds.json -> {len(dropping_odds)} maç")
 
     print(f"\n📊 ÖZET:")
     print(f"  🔻 Oran Düşen Maçlar: {len(dropping_odds)} maç")
