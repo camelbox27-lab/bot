@@ -32,6 +32,21 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # Hata halinde ilgili adimin son satirlari yine gosterilir, yoksa kullanici
 # neyin bozuldugunu goremez.
 SESSIZ = os.environ.get('SESSIZ') == '1'
+
+# MOBIL=1 (yalnizca telefondaki BULTEN YUKLE butonu bunu ayarlar):
+# SofaScore ve Mackolik'in mac sayfalari GitHub'in veri merkezi IP'lerinden
+# 403 donuyor; her ikisi de kritik adim oldugu icin zincir oradan ilerlemiyor.
+# Mobilde bu adimlarin yerine merged dosyasi Flashscore'dan dogrudan
+# uretiliyor (otomasyon/bulten_uret.py), sonuc guncelleme ise atlaniyor.
+# PC bu degiskeni ASLA ayarlamaz, orada davranis birebir ayni kalir.
+MOBIL = os.environ.get('MOBIL') == '1'
+MOBILDE_ATLANAN = {
+    'update_results.py',    # sonuclar SofaScore event_id ister, mobilde yok
+    'dropping_odds_bot.py', # SofaScore 403; mevcut droppingOdds.json korunur
+    'bet365data.py',        # SofaScore 403
+    'guncel_bulten.py',     # Mackolik mac sayfalari 403
+    'match_merger_bot.py',  # birlestirecek iki kaynak yok, merged hazir geliyor
+}
 LOG_DOSYA = os.path.join(BASE_DIR, 'bot_log.txt')
 HATA_SATIR = 15   # basarisiz adimda ekrana basilacak son satir sayisi
 # oddsy-data: CI'da ./oddsy-data, lokalde ../oddsy-data
@@ -257,6 +272,13 @@ def main():
     results = []
     aborted = False
     for step_name, script, cwd, extra, critical in steps:
+        if MOBIL and script in MOBILDE_ATLANAN:
+            if SESSIZ:
+                print(f"  {step_name:<42}ATLANDI (mobil)")
+            else:
+                print_header(step_name)
+                print("[ATLANDI] Mobil yolda bu adimin verisi Flashscore'dan geliyor.")
+            continue
         success = run_step(step_name, script, cwd, extra)
         results.append((step_name, success))
         if critical and not success:
