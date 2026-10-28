@@ -62,10 +62,13 @@ def filter_matches():
     print(f"✅ {len(all_matches)} maç yüklendi\n")
 
     # ===== İLK YARI GOL LİSTESİ =====
+    # Aralik DEGIL, tam eslesme: oran bu basamaklardan birine esit olmali.
+    ilk_yari_gol_oranlari = [3.50, 4.00, 4.10, 4.33, 4.50, 4.75,
+                             5.00, 5.25, 5.75, 6.00, 7.00, 8.00]
     ilk_yari_gol_listesi = []
     for match in all_matches:
         oran = match.get('beraberlik_orani')
-        if oran and 3.50 <= oran <= 8.00:
+        if oran and round(oran, 2) in ilk_yari_gol_oranlari:
             ilk_yari_gol_listesi.append({
                 "event_id": match.get('event_id'),
                 "home_team": match.get('home_team', ''),
