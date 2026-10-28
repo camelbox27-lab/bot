@@ -16,6 +16,10 @@ _local_path = os.path.abspath(os.path.join(BASE_DIR, '..', 'oddsy-data'))
 ODDSY_DATA_DIR = _ci_path if os.path.exists(_ci_path) else _local_path
 DATA_DIR = os.path.join(ODDSY_DATA_DIR, 'data')
 
+# MOBIL=1: telefondaki BULTEN YUKLE butonu. Bu modda droppingOdds.json
+# sifirlanmaz, cunku onu yeniden dolduracak adim mobilde calismiyor.
+MOBIL = os.environ.get('MOBIL') == '1'
+
 
 def clear_predictions():
     print("=" * 70)
@@ -26,8 +30,13 @@ def clear_predictions():
     deleted = 0
 
     # 1. droppingOdds.json'u bos liste ile sifirla
+    # MOBIL=1'de sifirlanmaz: dropping_odds_bot.py mobilde atlandigi icin
+    # (SofaScore 403) yerine yenisi yazilmaz ve menu bos kalir. PC'de bu
+    # adim her zamanki gibi calisir, davranis degismez.
     dropping_path = os.path.join(DATA_DIR, 'droppingOdds.json')
-    if os.path.exists(dropping_path):
+    if MOBIL:
+        print("[ATLANDI] droppingOdds.json korundu (mobil)")
+    elif os.path.exists(dropping_path):
         with open(dropping_path, 'w', encoding='utf-8') as f:
             json.dump([], f)
         print(f"[TEMIZLENDI] droppingOdds.json sifirlandi")
